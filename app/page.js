@@ -9,28 +9,48 @@ const [habits, setHabits] = useState([]);
 
 useEffect(() => {
   async function loadHabits() {
-    const { data, error } = await supabase.from('habit_logs')
+    const { data: habitsData, error: habitsError } = await supabase.from('habits')
     .select('*')
     .order('created_at', { ascending: true });
 
-    console.log('Database response:', data, error);
+   console.log('Loaded habits:', habitsData);
 
-    if (error) {
-      console.error('Error loading habits:', error);
-    } else {
-      const formattedHabits = data.map(row => ({
-        id: row.id,
-        name: row.habit_name,
-        value: row.value,
-        category: row.category,
-        goal: row.goal
-      }));
-      
-      setHabits(formattedHabits);
+   //Step 2: Get today's daate in uuu-mm-dd format
+   const today = new Date().toISOString().split('T')[0];
+   console.log('Today is:', today);
+
+   //Step 3: Get today's logs
+   const { data: logsData, error: logsError } = await supabase
+   .from('daily_logs')
+   .select('*')
+   .eq('log_date', today);
+
+   if (logsError) {
+    console.log('Error loading logs:', logsError);
+   }
+
+   console.log('Today\'s logs:', logsData);
+
+   // Steps: 4 Combine habits with today's values
+   const formattedHabits = habitsData.map(habit => {
+    // Find if there's a log for this habit today
+    const todayLog =logsData?.find(log => log.habit_id === habit.id);
+
+    return {
+      id: habit.id, 
+      name: habit.name,
+      value: todayLog ? todayLog.value : 0,
+      category: habit.category, 
+      goal: habit.goal
+    };
+   });
+
+   setHabits(formattedHabits);
     }
-  }
+  
   
   loadHabits();
+
 }, []);
 
 const addNewHabit = async () => {
@@ -51,14 +71,12 @@ const addNewHabit = async () => {
 
   // Insert into database
   const { data, error } = await supabase
-  .from('habit_logs')
+  .from('habits')
   .insert([
     {
-      habit_name: name,
-      category: category || 'General',
-      goal: goal,
-      value: 0,
-      log_date: new Date().toISOString().split('T')[0]
+      name: name,
+      category: category || "General",
+      goal: goal
     }
   ])
   .select();
@@ -70,8 +88,8 @@ const addNewHabit = async () => {
     // Add to local state so it shows up immediately
     const newHabit = {
       id: data[0].id,
-      name: data[0].habit_name,
-      value: data[0].value,
+      name: data[0].name,
+      value: 0,
       category: data[0].category,
       goal: data[0].goal
     };
@@ -94,7 +112,7 @@ const deleteHabit = async (habitId) => {
 
   // Delete from data base
   const { error } = await supabase
-  .from('habit_logs')
+  .from('habits')
   .delete()
   .eq('id', habitId)
   .select();
@@ -110,8 +128,11 @@ const deleteHabit = async (habitId) => {
 
   return (
     <main style={{
-      padding: '20px',
-      fontFamily: 'sans-serif'
+      padding: '10px',
+      fontFamily: 'sans-serif',
+      maxWidth: '100vw',
+      boxSizing: 'border-box'
+
     }}>
       <h1>Habit Tracker</h1>
       <p>Today: {new Date().toLocaleDateString()}</p>
@@ -219,19 +240,49 @@ const deleteHabit = async (habitId) => {
            onChange={async (e) => {
             const newValue = parseInt(e.target.value) || 0;
 
-            // Update in state immidiately (for instant UI feedback)
-            const updatedHabits = habits.map(h => h.id === habit.id ? { ...h, value: newValue } : h);
+            // Update in state immediately (for instant UI feedback)
+            const updatedHabits = habits.map(h => h.id === habit.id ? { ...h, value: newValue } : h );
+            
             setHabits(updatedHabits);
 
-            // Save to Database
-            const { error } = await supabase 
-            .from('habit_logs')
-            .update({value: newValue })
-            .eq('id', habit.id);
+            // Get today's date
+            const today = new Date().toISOString().split('T')[0];
 
-            if (error) {
-              console.error('Error saving:', error);
+            // Check if a log already exists for this habit today
+            const { data: existingLogs } = await supabase
+            .from('daily_logs')
+            .select('*')
+            .eq('habit_id', habit.id)
+            .eq('log_date', today)
+      
+            const existingLog = existingLogs && existingLogs.length > 0 ? existingLogs[0] : null;
+
+            console.log('Checking for existing log:', {habit_id: habit.id, today, existingLogs, existingLog });
+
+           if (existingLog) {
+            // Log exists - Update it
+            const { error: updateError } = await supabase
+            .from('daily_logs')
+            .update({ value: newValue })
+            .eq('id', existingLog.id);
+
+            if (updateError) {
+              console.error('Error updating log:', updateError);
             }
+           } else {
+            // No log exists - CREATE one
+            const { error: insertError } = await supabase
+            .from('daily_logs')
+            .insert([{
+              habit_id: habit.id,
+              log_date: today,
+              value: newValue
+            }]);
+
+            if (insertError) {
+              console.error('Error creating log:', insertError);
+            }
+           }
            }}
            
            style={{
