@@ -145,7 +145,7 @@ const deleteHabit = async (habitId) => {
         backgroundColor: '#706e6eff'
       }}>
         <h3 style={{ marginTop: 0 }}>Add New Habit</h3>
-        <div style={{ display: 'flex', gap: '10px', flexwrap: 'wrap' }}>
+        <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
           <input
           type="text"
           placeholder="Habit name"
@@ -156,7 +156,7 @@ const deleteHabit = async (habitId) => {
             border: '1px solid #232323ff',
             borderRadius: '4px',
             flex: '1',
-            minWidth: '150px'
+            minWidth: '100px'
           }}
           />
           <input
@@ -169,7 +169,7 @@ const deleteHabit = async (habitId) => {
             border: '1px solid #ccc',
             borderRadius: '4px',
             flex: '1',
-            minWidth: '120px'
+            minWidth: '80px'
           }}
           />
           <input
@@ -182,7 +182,7 @@ const deleteHabit = async (habitId) => {
             border: '1px solid #ccc',
             borderRadius: '4px',
             flex: '1',
-            minWidth: '120px'
+            minWidth: '80px'
           }}
           />
           <button
