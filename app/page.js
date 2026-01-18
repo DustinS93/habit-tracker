@@ -6,6 +6,8 @@ import { supabase } from '../supabase';
 export default function Home() {
  
 const [habits, setHabits] = useState([]);
+const [expandedHabitId, setExpandedHabitId] = useState(null);
+const [historyLogs, setHistoryLogs] = useState([]);
 
 useEffect(() => {
   async function loadHabits() {
@@ -15,7 +17,7 @@ useEffect(() => {
 
    console.log('Loaded habits:', habitsData);
 
-   //Step 2: Get today's daate in uuu-mm-dd format
+   //Step 2: Get today's daate in yyyy-mm-dd format
    const today = new Date().toISOString().split('T')[0];
    console.log('Today is:', today);
 
@@ -126,6 +128,36 @@ const deleteHabit = async (habitId) => {
   }
 }
 
+const loadHistory = async (habitId) => {
+  // If clicking the same habit , close it
+  if (expandedHabitId === habitId) {
+    setExpandedHabitId(null);
+    setHistoryLogs([]);
+    return;
+  }
+
+  // Get date 7 days ago
+  const today = new Date();
+  const sevenDaysAgo = new Date(today);
+  sevenDaysAgo.setDate(today.getDate() - 7);
+  const startDate = sevenDaysAgo.toISOString().split('T')[0];
+
+  // Fetch logs for this habit from last 7 days
+  const { data, error } = await supabase
+  .from('daily_logs')
+  .select('*')
+  .eq('habit_id', habitId)
+  .gte('log_date', startDate)
+  .order('log_date', { ascending: false });
+
+  if (error) {
+    console.error('Error loading history:', error);
+  } else {
+    setHistoryLogs(data || []);
+    setExpandedHabitId(habitId);
+  }
+};
+
   return (
     <main style={{
       padding: '10px',
@@ -140,9 +172,9 @@ const deleteHabit = async (habitId) => {
       <div style={{
         marginTop: '20px',
         padding: '15px',
-        border: '2px solid #212a21ff',
+        border: '1px solid #a7a3a3ff',
         borderRadius: '8px',
-        backgroundColor: '#706e6eff'
+        backgroundColor: '#000000ff'
       }}>
         <h3 style={{ marginTop: 0 }}>Add New Habit</h3>
         <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
@@ -153,7 +185,7 @@ const deleteHabit = async (habitId) => {
           style={{
             padding: '8px',
             fontSize: '14px',
-            border: '1px solid #232323ff',
+            border: '1px solid #fffefeff',
             borderRadius: '4px',
             flex: '1',
             minWidth: '100px'
@@ -188,9 +220,9 @@ const deleteHabit = async (habitId) => {
           <button
           onClick={addNewHabit}
           style={{
-            padding: '8px, 16px',
+            padding: '10px',
             fontSize: '14px', 
-            backgroundColor: '#4caf50',
+            backgroundColor: '#336434ff',
             color: 'white',
             border: 'none',
             borderRadius: '4px',
@@ -219,13 +251,29 @@ const deleteHabit = async (habitId) => {
             marginLeft: '10px',
             padding: '4px 8px',
             fontSize: '12px',
-            backgroundColor: '#f44336',
+            backgroundColor: '#87160eff',
             color: 'white',
             border: 'none',
             borderRadius: '4px',
             cursor: 'pointer'
           }}
           >Delete</button>
+
+          <button 
+          onClick={() => loadHistory(habit.id)}
+          style={{
+            marginLeft: '10px',
+            padding: '4px 8px',
+            fontSize: '12px',
+            backgroundColor: '#2196F3',
+            color: 'white',
+            border: 'none',
+            borderRadius: '4px',
+            cursor: 'pointer'
+          }}
+          >
+            {expandedHabitId === habit.id ? 'Hide History' : 'Show History'}
+          </button>
 
           <div style={{
             display: 'flex',
@@ -297,7 +345,28 @@ const deleteHabit = async (habitId) => {
             color: '#666'
            }}>/ {habit.goal}</span>}
            </div>
-          <small style={{ color: '#666' }}>{habit.category}</small>
+          <small style={{ color: '#969393ff' }}>{habit.category}</small>
+          
+          {expandedHabitId === habit.id && historyLogs.length > 0 && (
+            <div style={{
+              marginTop: '15px',
+              padding: '10px',
+              backgroundColor: '#6f6f6f',
+              borderRadius: '5px',
+              fontSize: '14px'
+            }}>
+              <strong>Last 7 Days:</strong>
+              {historyLogs.map(log => (
+                <div key={log.id} style={{ marginTop: '5px' }}>
+                  {new Date(log.log_date).toLocaleDateString()}:{log.value}
+                  </div>
+              ))}
+              <div style={{ marginTop: '10px', fontWeight: 'bold' }}>
+                Week Total: {historyLogs.reduce((sum, log) => sum + log.value, 0)}
+                </div>
+                </div>
+          )}
+
           </div>
       ))}
       </div>
